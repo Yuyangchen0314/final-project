@@ -8,7 +8,7 @@ import torch.utils.data
 
 import numpy as np
 import torch
-
+import matplotlib.pyplot as plt
 
 def load_data(base_path="../data"):
     """ Load the data in PyTorch Tensor.
@@ -70,7 +70,8 @@ class AutoEncoder(nn.Module):
         # Implement the function as described in the docstring.             #
         # Use sigmoid activations for f and g.                              #
         #####################################################################
-        out = inputs
+        out = torch.sigmoid(self.g(inputs))
+        out = torch.sigmoid(self.h(out))
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -91,13 +92,17 @@ def train(model, lr, lamb, train_data, zero_train_data, valid_data, num_epoch):
     :return: None
     """
     # TODO: Add a regularizer to the cost function. 
-    
+
     # Tell PyTorch you are training the model.
     model.train()
 
     # Define optimizers and loss function.
     optimizer = optim.SGD(model.parameters(), lr=lr)
     num_student = train_data.shape[0]
+
+    # Create lists for storing data (NN)
+    train_losses = []
+    valid_accs = []
 
     for epoch in range(0, num_epoch):
         train_loss = 0.
@@ -114,6 +119,9 @@ def train(model, lr, lamb, train_data, zero_train_data, valid_data, num_epoch):
             target[0][nan_mask] = output[0][nan_mask]
 
             loss = torch.sum((output - target) ** 2.)
+
+            loss += lamb / 2 * model.get_weight_norm()
+
             loss.backward()
 
             train_loss += loss.item()
@@ -122,6 +130,11 @@ def train(model, lr, lamb, train_data, zero_train_data, valid_data, num_epoch):
         valid_acc = evaluate(model, zero_train_data, valid_data)
         print("Epoch: {} \tTraining Cost: {:.6f}\t "
               "Valid Acc: {}".format(epoch, train_loss, valid_acc))
+
+        # Storage of accurate and loss data got after training
+        train_losses.append(train_loss)
+        valid_accs.append(valid_acc)
+    return train_losses, valid_accs
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
@@ -161,21 +174,63 @@ def main():
     # Try out 5 different k and select the best k using the             #
     # validation set.                                                   #
     #####################################################################
+    # Question 3 c): Use latent dimensions of k ∈ {10, 50, 100, 200, 500}.
+
+    # k_set = [10, 50, 100, 200, 500]
+    # lr_set = [0.01, 0.03, 0.05, 0.1, 0.2]
+    # for lr in lr_set:
+    #     for k in k_set:
+    #         print('K = ', k, 'lr = ', lr)
+    #         model = AutoEncoder(train_matrix.shape[1], k)
+    #         train(model, lr, 0, train_matrix, zero_train_matrix, valid_data, num_epoch=20)
+
+    # We choose k = 10, learning rate = 0.1, the number of iterations = 10
+    #
+    #
+
+    # Question 3 d): Use chosen k, plot and report how the training and validation objectives changes
     # Set model hyperparameters.
-    k = None
-    model = None
-
+    k = 10
+    model = AutoEncoder(train_matrix.shape[1], k)
     # Set optimization hyperparameters.
-    lr = None
-    num_epoch = None
-    lamb = None
+    lr = 0.1
+    num_epoch = 10
 
-    train(model, lr, lamb, train_matrix, zero_train_matrix,
-          valid_data, num_epoch)
+    # # Start training and get the data of changes in training and validation objectives
+    # train_losses, valid_accs = train(model, lr, 0, train_matrix, zero_train_matrix, valid_data, num_epoch)
+    # f, ax = plt.subplots(1, 2)
+    # ax[0].plot(range(num_epoch), train_losses)
+    # ax[0].set_xlabel('Num of Epoch')
+    # ax[0].set_ylabel('Train loss')
+    #
+    # ax[1].plot(range(num_epoch), valid_accs)
+    # ax[1].set_xlabel('Num of Epoch')
+    # ax[1].set_ylabel('Valid Accuracy')
+    # plt.show()
+    # # Report the final accuracy
+    # acc = evaluate(model, zero_train_matrix, test_data)
+    # print('Final test Accuracy is ', acc)
+
+    # Question e): tune the regularization penalty in {0.001, 0.01, 0.1, 1}
+    # train_losses, valid_accs = train(model, lr, lamb, train_matrix, zero_train_matrix, valid_data, num_epoch)
+
+    # lamb_set = [0.001, 0.01, 0.1, 1]
+    # for lamb in lamb_set:
+    #     print('lamb = ', lamb)
+    #     model = AutoEncoder(train_matrix.shape[1], k)
+    #     train(model, lr, lamb, train_matrix, zero_train_matrix, valid_data, num_epoch)
+
+    lamb = 0.001
+    model = AutoEncoder(train_matrix.shape[1], k)
+    train(model, lr, lamb, train_matrix, zero_train_matrix, valid_data, num_epoch)
+
+    test_acc = evaluate(model, zero_train_matrix, test_data)
+    print('Final test Accuracy is ', test_acc)
+    valid_acc = evaluate(model, zero_train_matrix, valid_data)
+    print('Final valid Accuracy is ', valid_acc)
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
-
 
 if __name__ == "__main__":
     main()
