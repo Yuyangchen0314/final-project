@@ -1,6 +1,6 @@
-from utils import *
-
 import numpy as np
+import matplotlib.pyplot as plt
+from utils import *
 
 
 def sigmoid(x):
@@ -25,6 +25,12 @@ def neg_log_likelihood(data, theta, beta):
     # Implement the function as described in the docstring.             #
     #####################################################################
     log_lklihood = 0.
+    i = np.array(data['user_id'])
+    j = np.array(data['question_id'])
+    c = np.array(data['is_correct'])
+    frac = sigmoid(theta[i]-beta[j])
+    likelihood_array = np.log(frac)*c + np.log(1-frac)*(1-c)
+    log_lklihood = np.sum(likelihood_array)
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
@@ -52,7 +58,16 @@ def update_theta_beta(data, lr, theta, beta):
     # TODO:                                                             #
     # Implement the function as described in the docstring.             #
     #####################################################################
-    pass
+    i = np.array(data['user_id'])
+    j = np.array(data['question_id'])
+    c = np.array(data['is_correct'])
+    new_theta = np.zeros(theta.shape)
+    new_beta = np.zeros(beta.shape)
+    for i_, j_, c_ in zip(i,j,c):
+        new_theta[i_] += sigmoid(theta[i_]-beta[j_])-c_
+        new_beta[j_] += c_-sigmoid(theta[i_]-beta[j_])
+    theta -= new_theta*lr
+    beta -= new_beta*lr
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
@@ -73,20 +88,25 @@ def irt(data, val_data, lr, iterations):
     :return: (theta, beta, val_acc_lst)
     """
     # TODO: Initialize theta and beta.
-    theta = None
-    beta = None
+    theta = np.zeros(542)
+    beta = np.zeros(1774)
 
     val_acc_lst = []
+    log_like_train = []
+    log_like_valid = []
 
     for i in range(iterations):
         neg_lld = neg_log_likelihood(data, theta=theta, beta=beta)
+        neg_lld_val = neg_log_likelihood(val_data, theta=theta, beta=beta)
+        log_like_train.append(-neg_lld)
+        log_like_valid.append(-neg_lld_val)
         score = evaluate(data=val_data, theta=theta, beta=beta)
         val_acc_lst.append(score)
         print("NLLK: {} \t Score: {}".format(neg_lld, score))
         theta, beta = update_theta_beta(data, lr, theta, beta)
 
     # TODO: You may change the return values to achieve what you want.
-    return theta, beta, val_acc_lst
+    return theta, beta, val_acc_lst, log_like_train, log_like_valid
 
 
 def evaluate(data, theta, beta):
@@ -120,7 +140,19 @@ def main():
     # Tune learning rate and number of iterations. With the implemented #
     # code, report the validation and test accuracy.                    #
     #####################################################################
-    pass
+    theta, beta, val_acc_lst, log_like_train, log_like_valid = \
+        irt(train_data, val_data, 0.015, 50)
+    # plt.plot(log_like_train, label='Training Log-Likelihood')
+    # plt.plot(log_like_valid, label='Validation Log-Likelihood')
+    # plt.xlabel('Iterations')
+    # plt.ylabel('Log-Likelihood')
+    # plt.legend()
+    # plt.show()
+    #
+    # val_acc = evaluate(val_data, theta, beta)
+    # test_acc = evaluate(test_data, theta, beta)
+    # print("Validation Accuracy: ", val_acc)
+    # print("Test Accuracy:", test_acc)
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
@@ -129,7 +161,13 @@ def main():
     # TODO:                                                             #
     # Implement part (d)                                                #
     #####################################################################
-    pass
+    plt.scatter(theta, sigmoid(theta-beta[0]), label ='Question 1')
+    plt.scatter(theta, sigmoid(theta-beta[3]), label ='Question 4')
+    plt.scatter(theta, sigmoid(theta-beta[5]), label='Question 6')
+    plt.xlabel('Theta')
+    plt.ylabel('Probability')
+    plt.legend()
+    plt.show()
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
